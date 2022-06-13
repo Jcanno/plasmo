@@ -10,8 +10,11 @@ import type {
 } from "@plasmo/constants"
 import { vLog } from "@plasmo/utils"
 
+import { definedTraverse } from "~features/helpers/traverse"
+
 import type { CommonPath } from "./common-path"
 import { extractContentScriptMetadata } from "./content-script"
+import { EnvConfig, loadEnvConfig } from "./load-env-config"
 import type { PackageJSON } from "./package-file"
 import { createContentScriptMount, createTemplateFiles } from "./scaffolds"
 import { TemplatePath, getTemplatePath } from "./template-path"
@@ -19,6 +22,7 @@ import { TemplatePath, getTemplatePath } from "./template-path"
 export const autoPermissionList: ManifestPermission[] = ["storage"]
 
 export class PlasmoExtensionManifest {
+  envConfig: EnvConfig
   commonPath: CommonPath
   templatePath: TemplatePath
 
@@ -34,6 +38,10 @@ export class PlasmoExtensionManifest {
 
   get changed() {
     return this.#hash !== this.#prevHash
+  }
+
+  get name() {
+    return this.#packageData.displayName
   }
 
   constructor(commonPath: CommonPath) {
@@ -64,7 +72,7 @@ export class PlasmoExtensionManifest {
     this.#data.author = this.#packageData.author
 
     this.#data.permissions = autoPermissionList.filter((p) =>
-      valid(this.#packageData.dependencies[`@plasmohq/${p}`])
+      valid(this.#packageData.dependencies?.[`@plasmohq/${p}`])
     )
 
     if (this.#data.permissions.length === 0) {
@@ -72,8 +80,8 @@ export class PlasmoExtensionManifest {
     }
   }
 
-  get name() {
-    return this.#packageData.displayName
+  async updateEnv() {
+    this.envConfig = await loadEnvConfig(this.commonPath.currentDirectory)
   }
 
   createOptionsScaffolds = () => createTemplateFiles(this, "options")
@@ -145,7 +153,14 @@ export class PlasmoExtensionManifest {
     return this
   }
 
+  #contentScriptExt = new Set([".tsx", ".ts"])
   toggleContentScript = async (path: string, enable = false) => {
+    const ext = extname(path)
+
+    if (!this.#contentScriptExt.has(ext)) {
+      return
+    }
+
     if (enable) {
       const metadata = await extractContentScriptMetadata(path)
 
@@ -219,7 +234,7 @@ export class PlasmoExtensionManifest {
     }
 
     const { options_ui, action, permissions, ...overide } =
-      this.#packageData?.manifest || {}
+      this.#getOverrideManifest()
 
     if (typeof options_ui?.open_in_tab === "boolean" && base.options_ui?.page) {
       base.options_ui.open_in_tab = options_ui.open_in_tab
@@ -231,5 +246,26 @@ export class PlasmoExtensionManifest {
       ...base,
       ...overide
     }
+  }
+
+  #getOverrideManifest = (): Partial<ExtensionManifest> => {
+    if (!this.#packageData?.manifest) {
+      return {}
+    }
+
+    return definedTraverse(this.#packageData.manifest, (value) => {
+      if (typeof value !== "string") {
+        return value
+      }
+
+      if (!!value.match(/^\$(\w+)$/)) {
+        return this.envConfig.combinedEnv[value.substring(1)] || undefined
+      } else {
+        return value.replace(
+          /\$(\w+)/gm,
+          (envKey) => this.envConfig.combinedEnv[envKey.substring(1)] || envKey
+        )
+      }
+    })
   }
 }

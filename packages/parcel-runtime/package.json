@@ -1,6 +1,6 @@
 {
   "name": "@plasmohq/parcel-runtime",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Plasmo Parcel Runtime",
   "files": [
     "dist",
@@ -25,7 +25,7 @@
   "devDependencies": {
     "@parcel/core": "2.6.0",
     "@plasmo/config": "workspace:*",
-    "tsup": "6.1.0"
+    "tsup": "6.1.2"
   },
   "dependencies": {
     "@parcel/plugin": "2.6.0"

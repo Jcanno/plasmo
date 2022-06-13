@@ -7,7 +7,7 @@ import { join } from "path"
 
 import { eLog, iLog } from "@plasmo/utils"
 
-export type Env = { [key: string]: string }
+export type Env = Record<string, string>
 export type LoadedEnvFiles = Array<{
   path: string
   contents: string
@@ -40,9 +40,8 @@ function processEnv(loadedEnvFiles: LoadedEnvFiles, dir?: string) {
   return parsed
 }
 
-export async function loadEnvConfig(dir: string, dev = false) {
-  const isTest = process.env.NODE_ENV === "test"
-  const mode = isTest ? "test" : dev ? "development" : "production"
+export async function loadEnvConfig(dir: string) {
+  const mode = process.env.NODE_ENV
   const dotenvFilePaths = [
     `.env.${mode}.local`,
     // Don't include `.env.local` for `test` environment
@@ -85,3 +84,5 @@ export async function loadEnvConfig(dir: string, dev = false) {
 
   return { combinedEnv, plasmoPublicEnv, loadedEnvFiles: envFiles }
 }
+
+export type EnvConfig = Awaited<ReturnType<typeof loadEnvConfig>>

@@ -29,29 +29,12 @@ export async function remoteCaching({
     return null
   }
 
-  let missingEnv: string
-
   const target = new URL(
-    specifier.replace(/\$(\w+)/, (env) => {
-      // substring: remove $
-      const value = process.env[env.substring(1)]
-      if (!value) {
-        missingEnv = env
-        return ""
-      }
-      return value
-    })
+    specifier.replace(
+      /\$(\w+)/gm,
+      (envKey) => process.env[envKey.substring(1)] || envKey
+    )
   )
-
-  if (missingEnv) {
-    return {
-      diagnostics: [
-        {
-          message: `Missing env variable: ${missingEnv}`
-        }
-      ]
-    }
-  }
 
   const fileType = "js"
 
